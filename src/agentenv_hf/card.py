@@ -1,6 +1,7 @@
 """The dataset card. An existing card keeps its text and its other configs; the publish adds the tags that list the
 dataset under the Hub's RL environments and this name's two configs. All configs are parquet, because the Hub reads
-every config of a repo with the builder the first one picks."""
+every config of a repo with the builder the first one picks. A name's note (its license and sources) sits between
+markers the publish owns, so republishing replaces it and leaves the other names' notes alone."""
 
 from huggingface_hub import DatasetCard
 
@@ -13,7 +14,7 @@ def configs(name: str, split: str) -> list[dict]:
 
 
 def card(existing: str | None, *, name: str, split: str, repo: str | None, description: str | None,
-         license: str | None) -> str:
+         license: str | None, note: str | None = None) -> str:
     result = DatasetCard(existing) if existing else DatasetCard(_body(name, repo, description))
     data = result.data
     data.tags = list(dict.fromkeys([*(data.get("tags") or []), *TAGS]))
@@ -24,7 +25,18 @@ def card(existing: str | None, *, name: str, split: str, repo: str | None, descr
     data.configs = kept + ours
     if license and not data.get("license"):
         data.license = license
+    if note is not None:
+        result.text = _with_note(result.text, name, note)
     return str(result)
+
+
+def _with_note(text: str, name: str, note: str) -> str:
+    start, end = f"<!-- agentenv-hf:{name} -->", f"<!-- /agentenv-hf:{name} -->"
+    block = f"{start}\n{note.strip()}\n{end}"
+    before, found, rest = text.partition(start)
+    if found and end in rest:
+        return before + block + rest.split(end, 1)[1]
+    return f"{text.rstrip()}\n\n{block}\n"
 
 
 def _body(name: str, repo: str | None, description: str | None) -> str:

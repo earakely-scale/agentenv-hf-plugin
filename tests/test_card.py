@@ -49,3 +49,25 @@ def test_an_existing_card_keeps_its_text_license_default_and_other_configs():
     assert [(c["config_name"], c.get("default")) for c in meta["configs"]] == [
         ("v2_tasks", True), ("v3_tasks", None), ("v3_episodes", None)]
     assert meta["configs"][1]["data_files"][0]["path"] == "tasks/v3.parquet"
+
+
+def test_a_names_note_is_replaced_on_republish_and_other_names_keep_theirs():
+    first = card(None, name="v3", split="eval", repo="me/ds", description=None, license=None,
+                 note="## v3 data\n\nCC BY-SA 4.0.\n")
+    both = card(first, name="hello", split="eval", repo="me/ds", description=None, license=None,
+                note="## hello\n\nApache-2.0.")
+    replaced = card(both, name="v3", split="eval", repo="me/ds", description=None, license=None,
+                    note="## v3 data\n\nCC BY-SA 4.0, Port de Barcelona.")
+    unchanged = card(replaced, name="v3", split="eval", repo="me/ds", description=None, license=None)
+
+    assert replaced.count("<!-- agentenv-hf:v3 -->") == 1
+    assert "CC BY-SA 4.0, Port de Barcelona." in replaced and "CC BY-SA 4.0.\n" not in replaced
+    assert replaced.index("<!-- agentenv-hf:v3 -->") < replaced.index("<!-- agentenv-hf:hello -->")
+    assert "Apache-2.0." in replaced
+    assert unchanged == replaced
+
+
+def test_a_note_goes_after_a_hand_written_cards_text():
+    text = card(EXISTING, name="v3", split="eval", repo="me/ds", description=None, license=None, note="Data: CC BY-SA.")
+
+    assert text.endswith("Its own text.\n\n<!-- agentenv-hf:v3 -->\nData: CC BY-SA.\n<!-- /agentenv-hf:v3 -->\n")

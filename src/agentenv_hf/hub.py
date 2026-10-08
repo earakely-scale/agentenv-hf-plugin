@@ -13,7 +13,7 @@ from agentenv_hf.scan import scan
 
 
 def push(dataset: Dataset, repo: str, *, license: str | None, private: bool, tag: str | None,
-         collection: str | None, known: dict[str, str], api: HfApi | None = None) -> str:
+         collection: str | None, known: dict[str, str], note: str | None = None, api: HfApi | None = None) -> str:
     scan(dataset.files, known)
     api = api or HfApi()
     api.create_repo(repo, repo_type="dataset", private=private, exist_ok=True)
@@ -23,7 +23,7 @@ def push(dataset: Dataset, repo: str, *, license: str | None, private: bool, tag
     except EntryNotFoundError:
         existing = None
     readme = card(existing, name=dataset.name, split=dataset.split, repo=repo, description=dataset.description,
-                  license=license).encode()
+                  license=license, note=note).encode()
     scan({"README.md": readme}, known)
     files = dataset.files | {"README.md": readme}
     stale = [path for path in api.list_repo_files(repo, repo_type="dataset", revision=parent)

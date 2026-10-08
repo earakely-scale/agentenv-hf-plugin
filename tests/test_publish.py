@@ -34,6 +34,16 @@ def test_hello_publishes_its_tasks_and_latest_run(agent_env, state):
     assert (out / "raw/hello.jsonl").read_text().count("\n") == 1
 
 
+def test_a_card_note_goes_in_the_written_card(agent_env, state):
+    (state / "note.md").write_text("## hello data\n\nApache-2.0, from agentenv-framework.\n")
+
+    result = agent_env("hf", "publish", "hello", "--card-note", "note.md", "--out", "ds")
+
+    assert result.exit_code == 0, result.output
+    readme = (state / "ds/README.md").read_text()
+    assert "<!-- agentenv-hf:hello -->\n## hello data\n\nApache-2.0, from agentenv-framework.\n" in readme
+
+
 def test_all_runs_and_no_local_paths(agent_env, state):
     bundle = shutil.copytree(HELLO, state / "my-hello")
     assert agent_env("run", str(bundle)).exit_code == 0

@@ -94,3 +94,13 @@ def test_a_token_inside_a_compressed_table_is_found():
     with pytest.raises(ValueError, match="episodes/hello.parquet looks like it holds a Hugging Face token"):
         push(_dataset(**{"episodes/hello.parquet": leaky}), "me/ds", license=None, private=False, tag=None,
              collection=None, known={}, api=FakeApi())
+
+
+def test_the_note_reaches_the_pushed_card():
+    api = FakeApi()
+
+    push(_dataset(), "me/ds", license=None, private=False, tag=None, collection=None, known={},
+         note="## hello\n\nApache-2.0.", api=api)
+
+    readme = next(op for op in api.calls[1][1] if op.path_in_repo == "README.md").path_or_fileobj.decode()
+    assert "<!-- agentenv-hf:hello -->\n## hello\n\nApache-2.0.\n<!-- /agentenv-hf:hello -->" in readme

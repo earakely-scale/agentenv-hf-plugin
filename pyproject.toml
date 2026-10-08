@@ -1,6 +1,6 @@
 [project]
 name = "agentenv-hf"
-version = "0.1.0"
+version = "0.2.0"
 description = "Publish AgentEnv bundles and their recorded runs to the Hugging Face Hub as datasets."
 readme = "README.md"
 license = "Apache-2.0"
