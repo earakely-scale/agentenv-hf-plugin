@@ -13,13 +13,13 @@ the dataset is listed under the Hub's [RL environments](https://huggingface.co/d
 In an agent-env install:
 
 ```bash
-agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.0'
+agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.1'
 ```
 
 Or install both together:
 
 ```bash
-uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.0'
+uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.1'
 ```
 
 Pushing needs a Hugging Face token with write access: log in with `hf auth login` (or
@@ -121,9 +121,11 @@ Transcripts are published as the agent wrote them; read a run's `messages` befor
 
 ## Compatibility
 
-agent-env keeps no record of a bundle or eval run, so the plugin finds runs by task id in the task-instance store,
-and reads bundles with agent-env's own parser. Both are framework internals rather than the documented plugin
-surface, so CI runs against the framework's latest release and its `main`.
+agent-env keeps no record of a bundle or eval run, so the plugin finds runs by task id, through the framework's public
+read API for recorded runs (`agent_env.task.store.task_instances` and `find_task_instance`, agentenv-framework
+0.9.1298 and later). It still reads bundles with agent-env's own parser, and trajectories through the object store,
+which are framework internals rather than the plugin surface, so CI runs against the framework's latest release and
+its `main`.
 
 ## Develop
 
