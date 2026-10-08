@@ -9,7 +9,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from agent_env.task_step.task_step import TaskStep
 
-from agentenv_hf.messages import detect, to_messages
+from agentenv_hf.messages import CLAUDE_CLI, detect, to_messages
 
 JSON = pa.json_()
 MESSAGE = pa.struct([("role", pa.string()), ("content", pa.string()), ("tool_calls", pa.list_(JSON)),
@@ -70,7 +70,7 @@ def episode_row(task: str, steps: list[dict], record: dict, trajectories: list[d
         "reward": reward(found, verifier), "scores": found,
         "prompt": next((r["prompt_text"] for r in responses if r.get("prompt_text")), None),
         "response": last.get("response"),
-        "messages": None if payload is None else to_messages(payload),
+        "messages": _messages(steps, record, trajectories),
         "tool_calls": sum(r["tool_call_count"] for r in responses if "tool_call_count" in r) if responses else None,
         "trajectory_format": None if payload is None else detect(payload) or "unknown",
         "failed_step": failed[-1].get("step_id") if failed else None,
@@ -88,6 +88,37 @@ def parquet(rows: list[dict], schema: pa.Schema) -> bytes:
     sink = io.BytesIO()
     pq.write_table(table, sink)
     return sink.getvalue()
+
+
+def _messages(steps: list[dict], record: dict, trajectories: list[dict]) -> list[dict] | None:
+    """A Claude Code trajectory covers one prompt and records neither it nor the system prompt, so a run's Claude
+    Code turns are joined, each after the prompt it answered, under the system prompt its steps sent. Any other
+    format keeps the last trajectory, which holds the whole conversation."""
+    if not trajectories:
+        return None
+    if any(detect(t["payload"]) != CLAUDE_CLI for t in trajectories):
+        return to_messages(trajectories[-1]["payload"])
+    by_step = {r.get("step_id"): r for r in record["prompt_responses"]}
+    seed = record["metadata"].get("seed") or {}
+    messages = []
+    for i, trajectory in enumerate(trajectories):
+        response = by_step.get(trajectory["step_id"], {})
+        system = _system_prompt(steps, response, seed) if i == 0 else None
+        messages += to_messages(trajectory["payload"], system=system, prompt=response.get("prompt_text"))
+    return messages
+
+
+def _system_prompt(steps: list[dict], response: dict, seed: dict) -> str | None:
+    """The prompt step's system prompt, else the one its agent was deployed with, filled from the run's seed as
+    prompt_agent and deploy_agent fill it."""
+    name = response.get("agent_name") or TaskStep.DEFAULT_AGENT_NAME
+    prompt_step = next((s for s in steps if s.get("id") == response.get("step_id")), {})
+    deploy_step = next((s for s in steps if s.get("type") == "deploy_agent"
+                        and (s.get("agent_name") or TaskStep.DEFAULT_AGENT_NAME) == name), {})
+    text = prompt_step.get("system_prompt") or deploy_step.get("system_prompt")
+    for key, value in seed.items() if text else ():
+        text = text.replace(f"<{key}>", str(value))
+    return text
 
 
 def _agent(steps: list[dict], name: str | None) -> str | None:

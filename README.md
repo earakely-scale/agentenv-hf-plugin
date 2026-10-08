@@ -13,13 +13,13 @@ the dataset is listed under the Hub's [RL environments](https://huggingface.co/d
 In an agent-env install:
 
 ```bash
-agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.1.0'
+agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.0'
 ```
 
 Or install both together:
 
 ```bash
-uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.1.0'
+uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.0'
 ```
 
 Pushing needs a Hugging Face token with write access: log in with `hf auth login` (or
@@ -46,11 +46,12 @@ are found in the stores `agent-env run` wrote them to.
 | `--reward VERIFIER` | The verifier whose score is `reward`. By default it's the score of a run's only verifier, and empty when there are several. |
 | `--split NAME` | The split both configs list their table under. Default `train`. |
 | `--license ID` | The card's license (e.g. `apache-2.0`), when the card has none. |
+| `--card-note FILE` | Markdown for this name's own section of the card, such as its license and data sources. A republish replaces the section; without the option, the section stays. |
 | `--tag REV` | Tag the published commit, e.g. `v0.1.0`, so others can pin it. |
 | `--collection SLUG` | Add the dataset to a collection. |
 
-Several bundles, or versions of one, can share a repo: each publish writes only its own name's files and configs, and
-a card already on the repo keeps its text and its other configs. Everything goes in one commit on top of the commit
+Several bundles, or versions of one, can share a repo: each publish writes only its own name's files, configs and
+note, and a card already on the repo keeps its text and its other configs and notes. Everything goes in one commit on top of the commit
 the publish read the card from.
 
 ## What's in the dataset
@@ -84,7 +85,7 @@ episodes = load_dataset("you/hello-agentenv", "hello_episodes", split="train")
 | `prompt`, `response` | The first prompt sent to the agent, and its last response |
 | `messages` | The agent's transcript as chat messages, when its trajectory format is one this plugin reads |
 | `tool_calls` | How many tool calls the agent reported |
-| `trajectory_format` | `chat`, `unknown`, or empty for a run with no agent |
+| `trajectory_format` | `chat`, `claude-cli`, `unknown`, or empty for a run with no agent |
 | `failed_step`, `error_type`, `error` | Why a run failed |
 | `verifications`, `structured_output` | The verifiers' full output, and the agent's structured output |
 
@@ -94,9 +95,18 @@ tool messages. The dicts with no fixed shape (`scores`, `verifications`, `struct
 calls) are Arrow JSON columns, which `datasets` 5.1 (the version the Hub's viewer runs) reads back as Python
 objects.
 
-Trajectory formats read so far: chat-message records, a `messages` list of role dicts with OpenAI or flat
-`{id, name, arguments}` tool calls. A run in another format keeps its trajectory in `raw/NAME.jsonl` and leaves
-`messages` empty.
+Trajectory formats read so far:
+
+- **Chat-message records** (`chat`): a `messages` list of role dicts with OpenAI or flat `{id, name, arguments}` tool
+  calls.
+- **Claude Code** (`claude-cli`): the `claude -p --output-format stream-json` event stream of an agent that wraps
+  Claude Code. The stream splits a model response into several records, with tool results between them, so each
+  response is regrouped and followed by its calls' results. It records neither the system prompt nor the user prompt:
+  the system prompt is the one the task's `prompt_agent` or `deploy_agent` step sent (filled from the run's seed), and
+  each prompt step's turn starts with the prompt it sent. Sub-agents' own records are left out; their work reaches the
+  conversation as the result of the call that started them. Thinking is left out.
+
+A run in another format keeps its trajectory in `raw/NAME.jsonl` and leaves `messages` empty.
 
 ## What is kept out
 
