@@ -71,3 +71,14 @@ def test_a_note_goes_after_a_hand_written_cards_text():
     text = card(EXISTING, name="v3", split="eval", repo="me/ds", description=None, license=None, note="Data: CC BY-SA.")
 
     assert text.endswith("Its own text.\n\n<!-- agentenv-hf:v3 -->\nData: CC BY-SA.\n<!-- /agentenv-hf:v3 -->\n")
+
+
+def test_a_bundles_needs_go_in_the_agentenv_table_beside_the_others():
+    v3 = {"plugins": ["agentenv-portsim @ git+https://example.org/p@v1"], "setup": "agent-env portsim setup"}
+    first = card(None, name="v3", split="eval", repo="me/ds", description=None, license=None, needs=v3)
+    both = card(first, name="v2", split="eval", repo="me/ds", description=None, license=None,
+                needs={"plugins": ["agentenv-portsim"]})
+    unchanged = card(both, name="v3", split="eval", repo="me/ds", description=None, license=None)
+
+    assert _meta(both)["agentenv"] == {"bundles": {"v3": v3, "v2": {"plugins": ["agentenv-portsim"]}}}
+    assert _meta(unchanged)["agentenv"] == _meta(both)["agentenv"]

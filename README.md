@@ -1,25 +1,26 @@
 # agentenv-hf
 
 Publish [AgentEnv](https://www.agentenvframework.com) bundles and their recorded runs to the
-[Hugging Face Hub](https://huggingface.co/datasets) as datasets.
+[Hugging Face Hub](https://huggingface.co/datasets) as datasets, and run bundles straight from them.
 
 `agent-env hf publish` takes a bundle you have run with `agent-env run` and writes a dataset with the bundle's tasks,
 one row per recorded run (status, model, reward, scores and the agent's transcript as chat messages), each run's
 record and native trajectory, and the bundle folder itself. The card is tagged `rl-environment` and `agentenv`, so
 the dataset is listed under the Hub's [RL environments](https://huggingface.co/datasets?other=rl-environment).
+`agent-env hf run OWNER/NAME` downloads such a dataset at a pinned commit and runs one of its bundles.
 
 ## Install
 
 In an agent-env install:
 
 ```bash
-agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.1'
+agent-env plugin add 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.3.0'
 ```
 
 Or install both together:
 
 ```bash
-uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.2.1'
+uv tool install agentenv-framework --with 'agentenv-hf @ git+https://github.com/earakely-scale/agentenv-hf-plugin@v0.3.0'
 ```
 
 Pushing needs a Hugging Face token with write access: log in with `hf auth login` (or
@@ -47,12 +48,49 @@ are found in the stores `agent-env run` wrote them to.
 | `--split NAME` | The split both configs list their table under. Default `train`. |
 | `--license ID` | The card's license (e.g. `apache-2.0`), when the card has none. |
 | `--card-note FILE` | Markdown for this name's own section of the card, such as its license and data sources. A republish replaces the section; without the option, the section stays. |
+| `--requires SPEC` | A plugin the bundle needs, as `agent-env plugin add` takes it (`name @ git+https://...@v1`). Repeatable. Written to the card for `agent-env hf run` to check. |
+| `--setup COMMAND` | The command that sets the bundle up once its plugins are added, such as one that builds and registers its images. Written to the card. |
 | `--tag REV` | Tag the published commit, e.g. `v0.1.0`, so others can pin it. |
 | `--collection SLUG` | Add the dataset to a collection. |
 
 Several bundles, or versions of one, can share a repo: each publish writes only its own name's files, configs and
 note, and a card already on the repo keeps its text and its other configs and notes. Everything goes in one commit on top of the commit
 the publish read the card from.
+
+## Run a bundle from the Hub
+
+```bash
+agent-env hf run you/hello-agentenv --bundle hello          # asks before it runs
+agent-env hf run you/hello-agentenv@v0.1.0 --bundle hello --dry-run
+```
+
+`DATASET` is `OWNER/NAME`, optionally `@REVISION` (a branch, tag or commit). The run:
+
+1. Resolves the revision to its commit, and downloads the card and `bundles/` into
+   `~/.cache/agentenv-hf/OWNER/NAME/COMMIT` (plain files, since bundle folders can't be read through the Hub cache's
+   symlinks).
+2. Picks the bundle: `--bundle`, else the only one, else the card's `default`.
+3. Checks the plugins the card says the bundle needs are installed, and stops with the `agent-env plugin add`
+   commands if they aren't. It never installs or runs anything the card names.
+4. Makes the checks `agent-env run` makes before its first task and shows what it would build and run. On a problem
+   such as an env that isn't registered yet, it prints the card's setup command.
+5. Asks before it runs, since a bundle can build images and run commands on this machine. `--yes` skips the
+   question; without a terminal, it runs only with `--yes`.
+6. Runs the bundle as `agent-env run` runs a folder, with `--task`, `--eval`, `--model` and `--sandbox` as there. Ids
+   are rooted at `@local/hf/OWNER/NAME/BUNDLE`, wherever the download lands, so a run of the same commit reuses what
+   an earlier one wrote, and runs can be published again with `agent-env hf publish`.
+
+What a bundle needs lives in the card, under an `agentenv` table that `hf publish --requires --setup` writes:
+
+```yaml
+agentenv:
+  default: dock-v1-eval
+  bundles:
+    dock-v1-eval:
+      plugins:
+        - agentenv-portsim @ git+https://github.com/earakely-scale/agentenv-portsim-plugin@v0.3.1
+      setup: agent-env portsim setup --agent
+```
 
 ## What's in the dataset
 
@@ -123,9 +161,9 @@ Transcripts are published as the agent wrote them; read a run's `messages` befor
 
 agent-env keeps no record of a bundle or eval run, so the plugin finds runs by task id, through the framework's public
 read API for recorded runs (`agent_env.task.store.task_instances` and `find_task_instance`, agentenv-framework
-0.9.1298 and later). It still reads bundles with agent-env's own parser, and trajectories through the object store,
-which are framework internals rather than the plugin surface, so CI runs against the framework's latest release and
-its `main`.
+0.9.1298 and later). It still reads bundles with agent-env's own parser, trajectories through the object store, and runs bundles with
+`run_bundle` and `agent-env run`'s own reporting, which are framework internals rather than the plugin surface, so
+CI runs against the framework's latest release and its `main`.
 
 ## Develop
 

@@ -14,7 +14,7 @@ def configs(name: str, split: str) -> list[dict]:
 
 
 def card(existing: str | None, *, name: str, split: str, repo: str | None, description: str | None,
-         license: str | None, note: str | None = None) -> str:
+         license: str | None, note: str | None = None, needs: dict | None = None) -> str:
     result = DatasetCard(existing) if existing else DatasetCard(_body(name, repo, description))
     data = result.data
     data.tags = list(dict.fromkeys([*(data.get("tags") or []), *TAGS]))
@@ -25,6 +25,10 @@ def card(existing: str | None, *, name: str, split: str, repo: str | None, descr
     data.configs = kept + ours
     if license and not data.get("license"):
         data.license = license
+    if needs:
+        table = dict(data.get("agentenv") or {})
+        table["bundles"] = {**(table.get("bundles") or {}), name: needs}
+        data.agentenv = table
     if note is not None:
         result.text = _with_note(result.text, name, note)
     return str(result)
