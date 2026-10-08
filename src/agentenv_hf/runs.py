@@ -1,13 +1,13 @@
 """The bundle a dataset is built from and its recorded runs. AgentEnv keeps no record of a bundle or eval run, only
-each run's task instance, so runs are found by task id: one query per task of the bundle."""
+each run's task instance, so runs are found by task id: one read per task of the bundle."""
 
+import dataclasses
 import os
 from pathlib import Path
 
 from agent_env.bundle.installed import find_bundle
 from agent_env.bundle.parse import Bundle, BundleEntry, BundleKind, parse_bundle
-from agent_env.config import get_config
-from agent_env.store import Filter
+from agent_env.task.store import find_task_instance, task_instances
 
 
 def locate(text: str) -> Bundle:
@@ -25,19 +25,18 @@ def tasks(bundle: Bundle) -> list[BundleEntry]:
 def instances(bundle: Bundle, which: str, ids: tuple[str, ...] = ()) -> tuple[list[dict], int]:
     """The runs to publish and how many unfinished ones were left out. ``which`` is ``latest`` (each task's newest
     finished run) or ``all``; ``ids`` picks runs by instance id instead."""
-    store = get_config().get_document_store()
     known = {entry.id for entry in tasks(bundle)}
     if ids:
         found = []
         for instance_id in ids:
-            doc = store.find_one("task_instances", Filter.of(instance_id=instance_id))
-            if doc is None or doc["task_id"] not in known:
+            run = find_task_instance(instance_id)
+            if run is None or run.task_id not in known:
                 raise ValueError(f"{instance_id}: no recorded run of a task in {bundle.name}")
-            found.append(doc)
+            found.append(dataclasses.asdict(run))
         return found, 0
     picked, unfinished = [], 0
     for entry in tasks(bundle):
-        docs = sorted(store.query("task_instances", Filter.of(task_id=entry.id)),
+        docs = sorted((dataclasses.asdict(run) for run in task_instances(entry.id)),
                       key=lambda doc: (doc.get("created_at_utc") or "", doc.get("completed_at_utc") or ""))
         finished = [doc for doc in docs if doc["status"] != "running"]
         unfinished += len(docs) - len(finished)

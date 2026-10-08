@@ -1,6 +1,6 @@
 [project]
 name = "agentenv-hf"
-version = "0.2.0"
+version = "0.2.1"
 description = "Publish AgentEnv bundles and their recorded runs to the Hugging Face Hub as datasets."
 readme = "README.md"
 license = "Apache-2.0"
@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "agentenv-framework>=0.9.1293",
+    "agentenv-framework>=0.9.1298",
     "click>=8.1",
     "huggingface_hub>=1.31,<2",
     "pyarrow>=19",
